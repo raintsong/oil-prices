@@ -8,5 +8,3 @@ def home():
 
 # REMOVE or move the 'if __name__ == "__main__":' block
 # Vercel handles the "running" for you.
-
-app = app
