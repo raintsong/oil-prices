@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Tracker Test</title>
+</head>
+<body>
+    <h1>Testing Vercel Hosting</h1>
+    <p id="api-status">Fetching from API...</p>
+
+    <script>
+        // Test if the Python backend is working
+        fetch('/api/hello')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('api-status').innerText = data.message;
+            });
+    </script>
+</body>
+</html>
