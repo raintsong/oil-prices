@@ -1,11 +1,12 @@
 from flask import Flask
 
-app = Flask(__name__)
+app = Flask(__name__) # This MUST be at the top level, not indented
 
-@app.route('/api/hello')
-def hello():
-    return {"message": "Hello from the Python API!"}
+@app.route('/')
+def home():
+    return "Hello World"
 
-# Vercel needs this to handle the request
-def handler(request):
-    return app(request)
+# REMOVE or move the 'if __name__ == "__main__":' block
+# Vercel handles the "running" for you.
+
+app = app
