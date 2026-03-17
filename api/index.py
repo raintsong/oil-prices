@@ -145,12 +145,22 @@ def get_price(category):
 
 @app.route('/')
 def serve_index():
-    path = os.path.join(os.path.dirname(__file__), '..', 'public', 'index.html')
+    # Resolve the absolute path to the public folder
+    # __file__ is /api/index.py, so we go up one level to the project root
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_dir, '..', 'public', 'index.html')
+    
+    if not os.path.exists(path):
+        return f"File not found at: {path}", 404
     return send_file(path)
 
 @app.route('/admin')
 def serve_admin():
-    path = os.path.join(os.path.dirname(__file__), '..', 'public', 'admin.html')
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_dir, '..', 'public', 'admin.html')
+    
+    if not os.path.exists(path):
+        return f"File not found at: {path}", 404
     return send_file(path)
 
 if __name__ == "__main__":
