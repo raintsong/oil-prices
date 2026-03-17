@@ -1,7 +1,7 @@
 import os
 import yfinance as yf
 import requests
-from flask import Flask, jsonify, send_file, request
+from flask import Flask, jsonify, request
 from datetime import datetime
 from dotenv import load_dotenv
 from upstash_redis import Redis
@@ -9,12 +9,11 @@ from upstash_redis import Redis
 load_dotenv()
 app = Flask(__name__)
 
-# --- REDIS CONFIGURATION (With Protocol Fix) ---
+# --- REDIS CONFIGURATION ---
+# Sanitize the Vercel rediss:// URL for the Upstash REST client
 raw_url = os.environ.get("KV_URL", "")
 kv_token = os.environ.get("KV_REST_API_TOKEN", "")
 
-# Upstash Python client requires https://. Vercel often provides rediss://
-# This logic extracts the hostname and formats it correctly.
 clean_url = raw_url
 if "@" in raw_url:
     clean_url = "https://" + raw_url.split("@")[1]
@@ -22,9 +21,9 @@ if "@" in raw_url:
 redis = Redis(url=clean_url, token=kv_token)
 
 EIA_KEY = os.environ.get("EIA_API_KEY")
-ADMIN_PW = "your_secret_password"  # Ensure this matches what you type in admin.html
+ADMIN_PW = "your_secret_password" # Ensure this matches your admin.html
 
-# Source Links for UI
+# Source Links for the Dashboard
 LINKS = {
     "brent": "https://finance.yahoo.com/quote/BZ=F",
     "wti": "https://finance.yahoo.com/quote/CL=F",
@@ -37,7 +36,7 @@ LINKS = {
     "algonquin": "https://www.eia.gov/todayinenergy/prices.php"
 }
 
-# --- ADMIN ROUTES ---
+# --- ADMIN LOGIC (Write to Redis) ---
 
 @app.route('/api/admin/update', methods=['POST'])
 def admin_update():
@@ -47,10 +46,10 @@ def admin_update():
             return jsonify({"error": "Unauthorized"}), 401
         
         raw_date = data.get('date')
-        # Standardize date string for display
+        # Format the date nicely for the UI (e.g., 'Mar 16')
         formatted_date = datetime.strptime(raw_date, '%Y-%m-%d').strftime('%b %d') if raw_date else datetime.now().strftime('%b %d')
         
-        # Store prices in Redis
+        # Save to Upstash
         redis.set('manual_date', formatted_date)
         redis.set('manual_price_nat', data.get('nat_price'))
         redis.set('manual_price_ma', data.get('ma_price'))
@@ -59,7 +58,7 @@ def admin_update():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- DATA HELPERS ---
+# --- DATA FETCHING HELPERS ---
 
 def fetch_ticker_data(symbol, category):
     try:
@@ -105,11 +104,11 @@ def fetch_eia_v2(route, series_id, category, freq="weekly", label=""):
         }
     except: return None
 
-# --- PRICE ROUTE ---
+# --- PUBLIC API ROUTE ---
 
 @app.route('/api/price/<category>')
 def get_price(category):
-    # Manual Gas Prices
+    # 1. Check for Manual AAA Data
     if category in ["retail_gas_nat", "retail_gas_ma"]:
         suffix = "nat" if "nat" in category else "ma"
         try:
@@ -124,44 +123,39 @@ def get_price(category):
         except: pass
         return jsonify({"error": "No data available"}), 404
 
-    # Yahoo Finance (Live Markets)
+    # 2. Market Tickers (Yahoo Finance)
     yf_map = {"brent": "BZ=F", "wti": "CL=F", "natgas": "NG=F", "gasoline": "RB=F"}
     if category in yf_map:
-        data = fetch_ticker_data(yf_map[category], category)
-        return jsonify(data) if data else (jsonify({"error": "YF Error"}), 500)
+        return jsonify(fetch_ticker_data(yf_map[category], category))
     
-    # EIA Hubs
+    # 3. Regional Hubs (EIA)
     if category == "heating_oil": 
         return jsonify(fetch_eia_v2("petroleum/pri/wfr", "W_EPD2F_PRS_SMA_DPG", category, "weekly", " (Weekly)"))
     if category == "jetfuel": 
         return jsonify(fetch_eia_v2("petroleum/pri/spt", "EER_EPJK_PF4_RGC_DPG", category, "daily", " (Spot)"))
     if category == "algonquin": 
-        # Using daily futures as a proxy for spot price reporting gaps
+        # Daily Futures proxy for Algonquin troubleshooting
         return jsonify(fetch_eia_v2("natural-gas/pri/fut", "NG_PRI_FUT_S1_D", category, "daily", " (Spot)"))
     
     return jsonify({"error": "Invalid category"}), 400
 
-# --- STATIC FILES (Vercel Navigation Fix) ---
-
-@app.route('/')
-def serve_index():
-    # Resolve the absolute path to the public folder
-    # __file__ is /api/index.py, so we go up one level to the project root
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base_dir, '..', 'public', 'index.html')
-    
-    if not os.path.exists(path):
-        return f"File not found at: {path}", 404
-    return send_file(path)
-
-@app.route('/admin')
-def serve_admin():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base_dir, '..', 'public', 'admin.html')
-    
-    if not os.path.exists(path):
-        return f"File not found at: {path}", 404
-    return send_file(path)
 
 if __name__ == "__main__":
+    # Locally, we need to tell Flask where the static files are 
+    # since vercel.json doesn't run on your local machine.
+    import os
+    from flask import send_from_directory
+    
+    # Define the public directory path
+    public_dir = os.path.join(os.path.dirname(__file__), '..', 'public')
+
+    @app.route('/')
+    def local_index():
+        return send_from_directory(public_dir, 'index.html')
+
+    @app.route('/admin')
+    def local_admin():
+        return send_from_directory(public_dir, 'admin.html')
+
+    # Run the server
     app.run(debug=True, port=5000)
