@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Energy Pulse Pro</title>
+    <title>Energy Pulse</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
     <style>
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         .loading-shimmer {
@@ -12,31 +20,37 @@
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite linear;
         }
+        .light .loading-shimmer {
+            background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+        }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 p-4 font-sans selection:bg-blue-500/30">
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-200 p-4 font-sans transition-colors duration-300">
 
-    <div class="max-w-xl mx-auto pb-20">
-        <header class="py-10 flex justify-between items-end border-b border-slate-800/50 mb-8">
-            <div>
-                <h1 class="text-4xl font-black text-white tracking-tighter italic">ENERGY PULSE</h1>
-                <p id="timestamp" class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2 text-blue-400">INITIALIZING FEED...</p>
+    <div class="max-w-lg mx-auto">
+        <header class="py-6 border-b border-slate-200 dark:border-slate-800/50 mb-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tighter italic leading-none">PULSE</h1>
+                    <p id="timestamp" class="text-[10px] text-blue-600 dark:text-blue-500 font-bold uppercase tracking-widest mt-1">Syncing...</p>
+                </div>
+                
+                <button onclick="toggleTheme()" class="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all shadow-sm">
+                    <svg id="theme-icon-dark" class="hidden dark:block w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"></path></svg>
+                    <svg id="theme-icon-light" class="block dark:hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                </button>
             </div>
-            <button onclick="refreshAll()" class="group flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black px-5 py-2.5 rounded-full transition-all active:scale-95 shadow-lg shadow-blue-900/20">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 group-hover:rotate-180 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                REFRESH
+
+            <button onclick="refreshAll()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-black py-3 rounded-2xl transition-all active:scale-95 shadow-lg shadow-blue-900/20 uppercase tracking-widest">
+                Refresh Prices
             </button>
         </header>
 
-        <div id="dashboard" class="grid gap-6">
-            </div>
+        <div id="dashboard" class="grid gap-4"></div>
 
-        <footer class="mt-12 text-center">
-            <p class="text-[9px] text-slate-700 font-bold uppercase tracking-widest leading-loose">
-                Proprietary Estimate Engine • Data: Yahoo Finance & EIA Gov<br>
-                Real-time Retail gas uses RBOB Futures Correlation Model
+        <footer class="mt-10 text-center pb-12">
+            <p class="text-[9px] text-slate-400 dark:text-slate-700 font-bold uppercase tracking-[0.2em]">
+                Live Estimates • Data via YFinance & EIA
             </p>
         </footer>
     </div>
@@ -44,13 +58,15 @@
     <script>
         const categories = ['brent', 'wti', 'natgas', 'gasoline', 'retail_gas', 'heating_oil'];
         const labels = {
-            brent: "Brent Crude Oil",
-            wti: "WTI Crude (US)",
-            natgas: "Henry Hub Nat Gas",
-            gasoline: "Gasoline Futures (RBOB)",
-            retail_gas: "MA Retail Gas (Estimate)",
-            heating_oil: "MA Heating Oil (Weekly)"
+            brent: "Brent Crude", wti: "WTI Crude",
+            natgas: "Henry Hub Gas", gasoline: "RBOB Gasoline",
+            retail_gas: "MA Retail Gas", heating_oil: "MA Heating Oil"
         };
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        }
 
         function initPlaceholders() {
             const container = document.getElementById('dashboard');
@@ -58,7 +74,7 @@
             categories.forEach(cat => {
                 const div = document.createElement('div');
                 div.id = `card-${cat}`;
-                div.className = "loading-shimmer h-36 rounded-3xl border border-slate-800 shadow-inner";
+                div.className = "loading-shimmer h-40 rounded-3xl border border-slate-200 dark:border-slate-800";
                 container.appendChild(div);
             });
         }
@@ -70,41 +86,47 @@
                 const item = await res.json();
                 
                 card.classList.remove('loading-shimmer');
-                card.className = "bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl hover:border-slate-700 transition-all duration-300";
+                card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm dark:shadow-xl transition-all";
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-5">
+                    <div class="flex justify-between items-start mb-4">
                         <div>
-                            <h2 class="text-[11px] font-black text-blue-400 uppercase tracking-wider mb-1">${labels[cat]}</h2>
-                            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">${item.as_of}</p>
+                            <h2 class="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-0.5">${labels[cat]}</h2>
+                            <p class="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase">${item.as_of}</p>
                         </div>
-                        <span class="text-3xl font-mono font-bold text-white tracking-tighter">$${item.current}</span>
+                        <div class="text-3xl font-mono font-bold text-slate-900 dark:text-white tracking-tighter">$${item.current}</div>
                     </div>
-                    <div class="grid grid-cols-3 gap-3">
-                        ${renderStat('1-Day', item.d1)}
-                        ${renderStat('7-Day', item.d7)}
-                        ${renderStat('30-Day', item.d30)}
+                    <div class="grid grid-cols-3 gap-2">
+                        ${renderStat('1D', item.d1)}
+                        ${renderStat('7D', item.d7)}
+                        ${renderStat('30D', item.d30)}
                     </div>
                 `;
             } catch (e) {
-                card.innerHTML = `<div class="h-full flex items-center justify-center text-rose-500 text-[10px] font-bold uppercase">Feed Interrupted</div>`;
+                card.innerHTML = `<div class="h-full flex items-center justify-center text-rose-500 text-[10px] font-bold uppercase py-10">Sync Failed</div>`;
             }
         }
 
         function renderStat(label, stat) {
-            if (!stat) return `<div class="bg-black/20 p-3 rounded-2xl border border-slate-800/50"></div>`;
-            const color = stat.abs >= 0 ? 'text-emerald-400' : 'text-rose-500';
-            const sign = stat.abs >= 0 ? '+' : '';
+            if (!stat) return `<div class="bg-slate-50 dark:bg-black/20 p-2 rounded-xl border border-slate-200 dark:border-slate-800/50"></div>`;
+            
+            const isPos = stat.abs >= 0;
+            const color = isPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+            const sign = isPos ? '+' : '';
+            
+            // Formats the number as $0.00
+            const absDisplay = sign + '$' + Math.abs(stat.abs).toFixed(2);
+
             return `
-                <div class="bg-black/40 p-3 rounded-2xl border border-slate-800/50 shadow-inner">
-                    <p class="text-[8px] text-slate-600 font-black uppercase mb-1 tracking-tighter">${label}</p>
-                    <p class="${color} text-sm font-bold leading-none mb-1">${sign}${stat.abs}</p>
-                    <p class="${color} text-[10px] font-medium opacity-60">${sign}${stat.pct}%</p>
+                <div class="bg-slate-50 dark:bg-black/40 p-2 rounded-xl border border-slate-200 dark:border-slate-800/50 text-center">
+                    <p class="text-[8px] text-slate-400 dark:text-slate-600 font-black uppercase mb-1">${label}</p>
+                    <p class="${color} text-[11px] font-bold leading-none mb-1">${absDisplay}</p>
+                    <p class="${color} text-[9px] font-medium opacity-60 leading-none">${sign}${stat.pct}%</p>
                 </div>`;
         }
 
         function refreshAll() {
             const now = new Date();
-            document.getElementById('timestamp').innerText = "Last Sync: " + now.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('timestamp').innerText = "Last Sync: " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
             initPlaceholders();
             categories.forEach(cat => fetchCard(cat));
         }
