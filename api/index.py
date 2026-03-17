@@ -30,6 +30,13 @@ def serve_admin():
             return send_from_directory(path, 'admin.html')
     return "admin.html not found", 404
 
+@app.route('/api/debug')
+def debug_check():
+    return {
+        "status": "alive",
+        "root_dir": ROOT_DIR,
+        "files_at_root": os.listdir(ROOT_DIR)
+    }
 
 # Local development entry
 if __name__ == "__main__":
