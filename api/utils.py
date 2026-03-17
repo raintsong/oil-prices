@@ -1,8 +1,8 @@
 import os
 from upstash_redis import Redis
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+load_dotenv(find_dotenv(".env.local"))
 
 # --- REDIS CONFIGURATION ---
 raw_url = os.environ.get("KV_URL", "")
@@ -16,7 +16,7 @@ if "@" in raw_url:
 redis = Redis(url=clean_url, token=kv_token)
 
 EIA_KEY = os.environ.get("EIA_API_KEY")
-ADMIN_PW = "your_secret_password" # In production, use os.environ.get("ADMIN_PW")
+ADMIN_PW = "crude" # In production, use os.environ.get("ADMIN_PW")
 
 # Source links for the frontend cards
 LINKS = {

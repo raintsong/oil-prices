@@ -9,38 +9,26 @@ app.url_map.strict_slashes = False
 # Register Blueprints
 app.register_blueprint(prices_bp)
 app.register_blueprint(admin_bp)
-# --- DYNAMIC PATH RESOLUTION (The Vercel Fix) ---
-# BASE_DIR is where index.py lives (the api/ folder)
-# We go up one level to get to the project root
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def get_static_file(filename):
-    """
-    Vercel flattens the 'public' folder into the root during deployment.
-    This helper checks the root first, then the public folder.
-    """
-    # 1. Check project root (where Vercel puts static assets)
-    root_path = os.path.join(BASE_DIR, filename)
-    if os.path.exists(root_path):
-        return BASE_DIR, filename
-    
-    # 2. Check public folder (for local development)
-    public_path = os.path.join(BASE_DIR, 'public', filename)
-    if os.path.exists(public_path):
-        return os.path.join(BASE_DIR, 'public'), filename
-        
-    return BASE_DIR, filename # Fallback
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
+
 
 @app.route('/')
 def serve_index():
-    directory, file = get_static_file('index.html')
-    return send_from_directory(directory, file)
+    # Check root first (Vercel production), then public/ (Local)
+    for path in [ROOT_DIR, os.path.join(ROOT_DIR, 'public')]:
+        if os.path.exists(os.path.join(path, 'index.html')):
+            return send_from_directory(path, 'index.html')
+    return "index.html not found", 404
 
 @app.route('/admin')
 def serve_admin():
-    directory, file = get_static_file('admin.html')
-    return send_from_directory(directory, file)
+    for path in [ROOT_DIR, os.path.join(ROOT_DIR, 'public')]:
+        if os.path.exists(os.path.join(path, 'admin.html')):
+            return send_from_directory(path, 'admin.html')
+    return "admin.html not found", 404
 
 
 # Local development entry
