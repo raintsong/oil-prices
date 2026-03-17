@@ -1,24 +1,19 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime
-from api.utils import redis, ADMIN_PW
+from api.utils import set_manual_prices # Your existing helper
 
 admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route('/api/admin/update', methods=['POST'])
-def admin_update():
-    try:
-        data = request.json
-        if not data or data.get('pw') != ADMIN_PW:
-            return jsonify({"error": "Unauthorized"}), 401
-        
-        raw_date = data.get('date')
-        # Format: 2026-03-16 -> Mar 16
-        formatted_date = datetime.strptime(raw_date, '%Y-%m-%d').strftime('%b %d') if raw_date else datetime.now().strftime('%b %d')
-        
-        redis.set('manual_date', formatted_date)
-        redis.set('manual_price_nat', data.get('nat_price'))
-        redis.set('manual_price_ma', data.get('ma_price'))
-        
-        return jsonify({"status": "success"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+def update_prices():
+    data = request.get_json() # Next.js sends JSON
+    
+    date_str = data.get('date')
+    national = data.get('national')
+    ma = data.get('ma')
+
+    # This calls your Upstash Redis logic
+    success = set_manual_prices(date_str, national, ma)
+    
+    if success:
+        return jsonify({"message": "Success"}), 200
+    return jsonify({"message": "Redis Error"}), 500
