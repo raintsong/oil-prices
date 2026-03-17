@@ -38,6 +38,20 @@ def debug_check():
         "files_at_root": os.listdir(ROOT_DIR)
     }
 
+@app.route('/api/debug-paths')
+def debug_paths():
+    import os
+    results = {
+        "current_dir": os.getcwd(),
+        "abs_file": os.path.abspath(__file__),
+        "root_contents": os.listdir(ROOT_DIR),
+        "current_contents": os.listdir(CURRENT_DIR)
+    }
+    if os.path.exists(os.path.join(ROOT_DIR, 'public')):
+        results["public_contents"] = os.listdir(os.path.join(ROOT_DIR, 'public'))
+    return results
+
+
 # Local development entry
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
