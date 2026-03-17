@@ -1,10 +1,13 @@
 import os
 import yfinance as yf
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime
 from dotenv import load_dotenv
 from upstash_redis import Redis
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_DIR = os.path.join(BASE_DIR, '..', 'public')
 
 load_dotenv()
 app = Flask(__name__)
@@ -140,22 +143,20 @@ def get_price(category):
     return jsonify({"error": "Invalid category"}), 400
 
 
+@app.route('/')
+def serve_index():
+    return send_from_directory(PUBLIC_DIR, 'index.html')
+
+@app.route('/admin')
+def serve_admin():
+    return send_from_directory(PUBLIC_DIR, 'admin.html')
+
+# 2. Add this to handle CSS or Images if you add them later
+@app.route('/public/<path:path>')
+def send_public(path):
+    return send_from_directory(PUBLIC_DIR, path)
+
+# ... (keep your /api/price and /api/admin/update routes here) ...
+
 if __name__ == "__main__":
-    # Locally, we need to tell Flask where the static files are 
-    # since vercel.json doesn't run on your local machine.
-    import os
-    from flask import send_from_directory
-    
-    # Define the public directory path
-    public_dir = os.path.join(os.path.dirname(__file__), '..', 'public')
-
-    @app.route('/')
-    def local_index():
-        return send_from_directory(public_dir, 'index.html')
-
-    @app.route('/admin')
-    def local_admin():
-        return send_from_directory(public_dir, 'admin.html')
-
-    # Run the server
     app.run(debug=True, port=5000)
