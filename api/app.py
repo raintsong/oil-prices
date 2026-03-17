@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from api.routes.prices import prices_bp
 from api.routes.admin import admin_bp
 
@@ -22,6 +22,13 @@ def serve_index():
 @app.route('/admin')
 def serve_admin():
     return send_from_directory(app.static_folder, 'admin.html')
+
+@app.route('/api/hello')
+def hello_world():
+    return jsonify({
+        "message": "Hello from Flask!",
+        "status": "Success"
+    })
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

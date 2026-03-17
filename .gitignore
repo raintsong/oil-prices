@@ -1,5 +1,16 @@
+# Python
 *venv/
 .env
 *__pycache__*
-.vercel
 .env*.local
+
+# Next.js
+.next/
+out/
+build/
+
+# Node modules
+node_modules/
+
+# Static folder (if you use Next.js Image Optimization)
+.vercel/
