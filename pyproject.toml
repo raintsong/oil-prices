@@ -4,7 +4,11 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "flask",
+    "yfinance",
+    "requests",
+    "python-dotenv",
+    "upstash-redis",
 ]
 
 [tool.setuptools]
-packages = ["api"]
+packages = ["api", "api.routes"]
