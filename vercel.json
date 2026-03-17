@@ -1,7 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/app.py" },
-    { "source": "/admin", "destination": "/api/app.py" },
-    { "source": "/", "destination": "/api/app.py" }
-  ]
-}

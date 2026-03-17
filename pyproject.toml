@@ -1,0 +1,15 @@
+[project]
+name = "oil-prices"
+version = "0.1.0"
+description = "A Flask API for tracking oil prices deployed on Vercel"
+requires-python = ">=3.12"
+dependencies = [
+    "flask",
+    "yfinance",
+    "requests",
+    "python-dotenv",
+    "upstash-redis",
+]
+
+[tool.setuptools]
+packages = ["api", "api.routes"]
