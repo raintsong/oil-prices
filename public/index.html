@@ -3,82 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Energy & Gas Dashboard</title>
+    <title>Energy Pulse Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .price-card { transition: transform 0.2s; }
-        .price-card:active { transform: scale(0.98); }
-    </style>
 </head>
-<body class="bg-slate-900 text-white font-sans p-4">
+<body class="bg-slate-950 text-slate-200 p-4 font-sans">
 
-    <header class="mb-8 text-center">
-        <h1 class="text-3xl font-bold text-blue-400">Energy Dashboard</h1>
-        <p class="text-slate-400 text-sm">Last Updated: Just Now</p>
-    </header>
-
-    <main class="max-w-md mx-auto space-y-6">
-
-        <section>
-            <h2 class="text-xl font-semibold mb-3 border-b border-slate-700 pb-1">Brent Crude Oil</h2>
-            <div class="price-card bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700">
-                <div class="flex justify-between items-end mb-4">
-                    <span class="text-slate-400 text-sm">Opening Price</span>
-                    <span class="text-4xl font-mono font-bold">$101.85</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 text-center text-xs uppercase tracking-wider">
-                    <div class="bg-slate-700/50 p-2 rounded-lg">
-                        <p class="text-slate-400 mb-1">24h</p>
-                        <p class="text-red-400 font-bold">-2.8%</p>
-                    </div>
-                    <div class="bg-slate-700/50 p-2 rounded-lg">
-                        <p class="text-slate-400 mb-1">7d</p>
-                        <p class="text-green-400 font-bold">+5.2%</p>
-                    </div>
-                    <div class="bg-slate-700/50 p-2 rounded-lg">
-                        <p class="text-slate-400 mb-1">30d</p>
-                        <p class="text-green-500 font-bold">+51.1%</p>
-                    </div>
-                </div>
+    <div class="max-w-xl mx-auto">
+        <header class="py-8 text-center">
+            <h1 class="text-3xl font-black text-white tracking-tighter">ENERGY PULSE</h1>
+            <div class="inline-block px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full mt-2">
+                <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Live Market Feed</p>
             </div>
-        </section>
+        </header>
 
-        <section>
-            <h2 class="text-xl font-semibold mb-3 border-b border-slate-700 pb-1">Gasoline (Regular)</h2>
-            <div class="space-y-4">
-                <div class="price-card bg-slate-800 p-5 rounded-2xl shadow-lg border-l-4 border-blue-500">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="text-xs text-blue-400 font-bold uppercase">United States</p>
-                            <p class="text-2xl font-mono font-bold">$3.72<span class="text-sm text-slate-500">/gal</span></p>
+        <div id="dashboard" class="space-y-4">
+            <div class="text-center py-20 text-slate-600 animate-pulse">Loading market data...</div>
+        </div>
+    </div>
+
+    <script>
+        const labels = {
+            brent: "Brent Crude (Global)",
+            wti: "WTI Oil (US)",
+            natgas: "Natural Gas (Henry Hub)",
+            gasoline: "Gasoline (RBOB)"
+        };
+
+        async function loadData() {
+            try {
+                const res = await fetch('/api/prices');
+                const data = await res.json();
+                const container = document.getElementById('dashboard');
+                container.innerHTML = '';
+
+                Object.keys(data).forEach(key => {
+                    const item = data[key];
+                    const card = document.createElement('div');
+                    card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl";
+                    
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-sm font-bold text-slate-400 uppercase tracking-tight">${labels[key]}</h2>
+                            <span class="text-2xl font-mono font-bold text-white">$${item.current}</span>
                         </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-slate-500 uppercase">vs Yesterday</p>
-                            <p class="text-red-400 font-bold">+0.5%</p>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${renderStat('1D', item.d1)}
+                            ${renderStat('7D', item.d7)}
+                            ${renderStat('30D', item.d30)}
                         </div>
-                    </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (e) {
+                console.error("Failed to load data", e);
+            }
+        }
+
+        function renderStat(label, stat) {
+            const isPos = stat.abs >= 0;
+            const color = isPos ? 'text-emerald-400' : 'text-rose-500';
+            const sign = isPos ? '+' : '';
+            return `
+                <div class="bg-black/20 p-2 rounded-lg border border-slate-800/50">
+                    <p class="text-[9px] text-slate-600 font-bold uppercase mb-1">${label}</p>
+                    <p class="${color} text-xs font-bold">${sign}${stat.abs}</p>
+                    <p class="${color} text-[10px] opacity-80">${sign}${stat.pct}%</p>
                 </div>
+            `;
+        }
 
-                <div class="price-card bg-slate-800 p-5 rounded-2xl shadow-lg border-l-4 border-emerald-500">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="text-xs text-emerald-400 font-bold uppercase">Massachusetts</p>
-                            <p class="text-2xl font-mono font-bold">$3.58<span class="text-sm text-slate-500">/gal</span></p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-slate-500 uppercase">vs Month Ago</p>
-                            <p class="text-red-500 font-bold">+22.4%</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <footer class="mt-12 text-center text-slate-600 text-[10px]">
-        Data provided via EIA and Commodity APIs
-    </footer>
-
+        loadData();
+    </script>
 </body>
 </html>
