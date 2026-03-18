@@ -1,6 +1,9 @@
 import os
 import logging
+import json
+import time
 from upstash_redis import Redis
+from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
 
 # Load environment variables from .env.local
@@ -44,32 +47,48 @@ LINKS = {
 }
 
 # --- 4. DATA HELPERS ---
-
 def set_manual_prices(date_str, national, ma):
-    """Saves manual gas price overrides to Upstash Redis."""
-    if not redis:
-        logger.error("Redis client not initialized.")
-        return False
+    if not redis: return False
     try:
-        redis.set("manual_date", str(date_str))
-        redis.set("manual_price_nat", str(national))
-        redis.set("manual_price_ma", str(ma))
-        logger.info(f"Updated Redis: {date_str}, {national}, {ma}")
+        # 1. Create the 'Row' with a precise timestamp
+        # This is your "timestamp column"
+        data_point = {
+            "date": date_str,      # e.g., "2026-03-17"
+            "nat": float(national),
+            "ma": float(ma),
+            "created_at": time.time() # Unix timestamp for precise ordering
+        }
+        
+        # 2. Append to the history log
+        redis.lpush("price_history_log", json.dumps(data_point))
         return True
     except Exception as e:
-        logger.error(f"Redis Push Failed: {e}")
+        print(f"Error saving to Redis: {e}")
         return False
 
-def get_manual_prices():
-    """Retrieves current manual overrides from Redis."""
-    if not redis:
-        return None
+def get_deduplicated_history():
+    """
+    Simulates: SELECT * FROM (SELECT *, ROW_NUMBER() OVER 
+    (PARTITION BY date ORDER BY created_at DESC) as rn FROM log) 
+    WHERE rn = 1
+    """
+    if not redis: return []
     try:
-        return {
-            "date": redis.get("manual_date"),
-            "national": redis.get("manual_price_nat"),
-            "ma": redis.get("manual_price_ma")
-        }
+        # Pull the last 100 entries to ensure we have enough history
+        raw_data = redis.lrange("price_history_log", 0, 100)
+        all_entries = [json.loads(item) for item in raw_data]
+        
+        # Deduplicate by date, keeping the first (most recent) one found
+        seen_dates = set()
+        unique_history = []
+        
+        for entry in all_entries:
+            if entry['date'] not in seen_dates:
+                unique_history.append(entry)
+                seen_dates.add(entry['date'])
+        
+        # Now we have a clean history: [Today, Yesterday, 2 days ago...]
+        return unique_history
     except Exception as e:
-        logger.error(f"Redis Get Failed: {e}")
-        return None
+        print(f"Error processing history: {e}")
+        return []
