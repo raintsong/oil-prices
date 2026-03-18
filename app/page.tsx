@@ -4,6 +4,8 @@ import Header from '@/components/Header';
 import PriceCard from '@/components/PriceCard';
 
 const CATEGORIES = {
+  retail_gas_nat: "US Retail Gas (AAA)",
+  retail_gas_ma: "MA Retail Gas (AAA)",
   brent: "Brent Crude", wti: "WTI Crude", natgas: "Henry Hub",
   gasoline: "RBOB Gasoline", algonquin: "Algonquin Gas",
   heating_oil: "MA Heating Oil", jetfuel: "Jet Fuel Spot"

@@ -1,24 +1,36 @@
 import os
+import logging
 from upstash_redis import Redis
 from dotenv import load_dotenv, find_dotenv
 
+# Load environment variables from .env.local
 load_dotenv(find_dotenv(".env.local"))
 
-# --- REDIS CONFIGURATION ---
-raw_url = os.environ.get("KV_URL", "")
-kv_token = os.environ.get("KV_REST_API_TOKEN", "")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Sanitize Vercel's rediss:// URL for the Upstash REST client
-clean_url = raw_url
-if "@" in raw_url:
-    clean_url = "https://" + raw_url.split("@")[1]
+# --- 1. REDIS CONFIGURATION (VERCEL/UPSTASH INTEGRATION) ---
+# Mapping to your specific UPSTASH_KV_KV_... keys
+rest_url = os.environ.get("UPSTASH_KV_KV_REST_API_URL")
+rest_token = os.environ.get("UPSTASH_KV_KV_REST_API_TOKEN")
 
-redis = Redis(url=clean_url, token=kv_token)
+# SANITIZATION: Force the https:// protocol for the Upstash REST client
+if rest_url and not rest_url.startswith("http"):
+    rest_url = f"https://{rest_url}"
 
+# Initialize the client
+if rest_url and rest_token:
+    redis = Redis(url=rest_url, token=rest_token)
+    print(f"✅ REDIS INITIALIZED: {rest_url}")
+else:
+    print("❌ REDIS ERROR: Missing UPSTASH_KV_KV_... env variables")
+    redis = None
+
+# --- 2. EIA & ADMIN CONFIG ---
 EIA_KEY = os.environ.get("EIA_API_KEY")
-ADMIN_PW = "crude" # In production, use os.environ.get("ADMIN_PW")
+ADMIN_PW = os.environ.get("ADMIN_PW", "crude")
 
-# Source links for the frontend cards
+# --- 3. SOURCE LINKS ---
 LINKS = {
     "brent": "https://finance.yahoo.com/quote/BZ=F",
     "wti": "https://finance.yahoo.com/quote/CL=F",
@@ -30,3 +42,34 @@ LINKS = {
     "jetfuel": "https://www.eia.gov/dnav/pet/hist/eer_epjk_pf4_rgc_dpgD.htm",
     "algonquin": "https://www.eia.gov/todayinenergy/prices.php"
 }
+
+# --- 4. DATA HELPERS ---
+
+def set_manual_prices(date_str, national, ma):
+    """Saves manual gas price overrides to Upstash Redis."""
+    if not redis:
+        logger.error("Redis client not initialized.")
+        return False
+    try:
+        redis.set("manual_date", str(date_str))
+        redis.set("manual_price_nat", str(national))
+        redis.set("manual_price_ma", str(ma))
+        logger.info(f"Updated Redis: {date_str}, {national}, {ma}")
+        return True
+    except Exception as e:
+        logger.error(f"Redis Push Failed: {e}")
+        return False
+
+def get_manual_prices():
+    """Retrieves current manual overrides from Redis."""
+    if not redis:
+        return None
+    try:
+        return {
+            "date": redis.get("manual_date"),
+            "national": redis.get("manual_price_nat"),
+            "ma": redis.get("manual_price_ma")
+        }
+    except Exception as e:
+        logger.error(f"Redis Get Failed: {e}")
+        return None

@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify
 import yfinance as yf
 import requests
 from datetime import datetime
-from api.utils import redis, EIA_KEY, LINKS
+from api.utils import redis, get_manual_prices, EIA_KEY, LINKS
 
 prices_bp = Blueprint('prices', __name__)
 
@@ -53,19 +53,21 @@ def fetch_eia_v2(route, series_id, category, freq="weekly", label=""):
 @prices_bp.route('/api/price/<category>')
 def get_price(category):
     # 1. Manual Gas Overrides
-    if category in ["retail_gas_nat", "retail_gas_ma"]:
-        suffix = "nat" if "nat" in category else "ma"
-        try:
-            m_price = redis.get(f'manual_price_{suffix}')
-            m_date = redis.get('manual_date')
-            if m_price:
-                return jsonify({
-                    "current": float(m_price), "as_of": f"{m_date} (Manual)",
-                    "source_name": "Manual Input / AAA", "source_url": LINKS[category],
-                    "d1": None, "d7": None, "d30": None
-                })
-        except: pass
-        return jsonify({"error": "No data available"}), 404
+    if category in ['retail_gas_nat', 'retail_gas_ma']:
+        manual_data = get_manual_prices()
+        
+        if manual_data and manual_data.get('date'):
+            # Determine which price to show based on the category
+            price_val = manual_data.get('national') if category == 'retail_gas_nat' else manual_data.get('ma')
+            
+            return jsonify({
+                "price": float(price_val),
+                "unit": "USD/gal",
+                "date": manual_data.get('date'),
+                "change_1d": 0.0, # Manual data usually doesn't have 1d delta unless you calculate it
+                "source": "AAA (Manual)",
+                "link": LINKS.get(category)
+            })
 
     # 2. Yahoo Finance Tickers
     yf_map = {"brent": "BZ=F", "wti": "CL=F", "natgas": "NG=F", "gasoline": "RB=F"}
