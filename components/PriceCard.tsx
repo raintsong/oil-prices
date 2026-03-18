@@ -81,11 +81,11 @@ export default function PriceCard({ label, data, loading }: PriceCardProps) {
             <p className="text-[11px] font-black text-slate-900 dark:text-white leading-none">
               {/* Using 3 decimals for anything related to Fuel/Gas categories */}
               ${(label.toLowerCase().includes("fuel") || label.toLowerCase().includes("oil") || isGas) 
-                  ? data.peak_2026?.val.toFixed(3) 
-                  : data.peak_2026?.val.toFixed(2)}
+                  ? data.peak_cy?.val.toFixed(3) 
+                  : data.peak_cy?.val.toFixed(2)}
             </p>
             <p className="text-[8px] font-bold text-slate-400 uppercase">
-              On {data.peak_2026?.date || 'N/A'}
+              On {data.peak_cy?.date || 'N/A'}
             </p>
           </div>
         </div>
