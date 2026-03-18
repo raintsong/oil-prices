@@ -11,75 +11,94 @@ def fetch_ticker_data(symbol, category):
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period="40d").dropna()
         live = ticker.history(period="1d", interval="1m").dropna()
-        ytd = ticker.history(start="2026-01-01").dropna()
         
         latest = float(live['Close'].iloc[-1])
-        peak_val = float(ytd['High'].max())
-        peak_date = ytd['High'].idxmax().strftime('%b %d')
+        prev_close = float(hist['Close'].iloc[-2])
         
-        def calc(past):
-            abs_v = latest - past
-            return {"abs": round(abs_v, 2), "pct": round((abs_v / past) * 100, 2)}
+        # Calculate 1-day change percentage for the PriceCard
+        change_pct = ((latest - prev_close) / prev_close) * 100
         
         return {
-            "current": latest,
-            "as_of": live.index[-1].strftime('%b %d, %I:%M %p'),
-            "peak_2026": {"val": peak_val, "date": peak_date},
-            "source_name": "Yahoo Finance", "source_url": LINKS.get(category),
-            "d1": calc(hist['Close'].iloc[-2]), 
-            "d7": calc(hist['Close'].iloc[-6]), 
-            "d30": calc(hist['Close'].iloc[0])
+            "price": latest, # Mapped from 'current'
+            "date": live.index[-1].strftime('%b %d, %I:%M %p'), # Mapped from 'as_of'
+            "change_1d": round(change_pct, 2),
+            "source": "Yahoo Finance",
+            "link": LINKS.get(category),
+            # Keep your extra data if you want to use it later
+            "history": {
+                "d7_pct": round(((latest - hist['Close'].iloc[-6]) / hist['Close'].iloc[-6]) * 100, 2),
+                "d30_pct": round(((latest - hist['Close'].iloc[0]) / hist['Close'].iloc[0]) * 100, 2)
+            }
         }
-    except: return None
+    except Exception as e:
+        print(f"Error fetching {symbol}: {e}")
+        return None
 
 def fetch_eia_v2(route, series_id, category, freq="weekly", label=""):
     if not EIA_KEY: return None
-    url = f"https://api.eia.gov/v2/{route}/data/?api_key={EIA_KEY}&frequency={freq}&data[0]=value&facets[series][]={series_id}&sort[0][column]=period&sort[0][direction]=desc&length=40"
+    url = f"https://api.eia.gov/v2/{route}/data/?api_key={EIA_KEY}&frequency={freq}&data[0]=value&facets[series][]={series_id}&sort[0][column]=period&sort[0][direction]=desc&length=5"
     try:
         res = requests.get(url).json()
         data = res['response']['data']
         curr = float(data[0]['value'])
+        past = float(data[1]['value'])
+        
         as_of = datetime.strptime(data[0]['period'], '%Y-%m-%d').strftime('%b %d') + label
-        def calc(idx):
-            past = float(data[idx]['value'])
-            return {"abs": round(curr - past, 2), "pct": round(((curr - past) / past) * 100, 2)}
+        change_pct = ((curr - past) / past) * 100
+        
         return {
-            "current": curr, "as_of": as_of, 
-            "source_name": "US EIA", "source_url": LINKS.get(category),
-            "d1": calc(1), "d7": calc(5 if freq=="daily" else 2), "d30": calc(len(data)-1)
+            "price": curr,
+            "date": as_of,
+            "change_1d": round(change_pct, 2),
+            "source": f"US EIA{label}",
+            "link": LINKS.get(category)
         }
-    except: return None
+    except Exception as e:
+        print(f"Error fetching EIA {series_id}: {e}")
+        return None
+
+def get_days_ago(date_str):
+    try:
+        # Assumes date_str is 'YYYY-MM-DD' from your HTML5 date input
+        past_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        delta = date.today() - past_date
+        return delta.days
+    except:
+        return None
 
 @prices_bp.route('/api/price/<category>')
 def get_price(category):
-    # 1. Manual Gas Overrides
+    # --- 1. MANUAL GAS DATA ---
     if category in ['retail_gas_nat', 'retail_gas_ma']:
-        manual_data = get_manual_prices()
-        
-        if manual_data and manual_data.get('date'):
-            # Determine which price to show based on the category
-            price_val = manual_data.get('national') if category == 'retail_gas_nat' else manual_data.get('ma')
+        manual = get_manual_prices()
+        if manual and manual.get('date'):
+            val = manual['national'] if category == 'retail_gas_nat' else manual['ma']
+            days_ago = get_days_ago(manual['date'])
             
             return jsonify({
-                "price": float(price_val),
-                "unit": "USD/gal",
-                "date": manual_data.get('date'),
-                "change_1d": 0.0, # Manual data usually doesn't have 1d delta unless you calculate it
-                "source": "AAA (Manual)",
-                "link": LINKS.get(category)
+                "price": float(val),
+                "date": manual['date'],
+                "days_ago": days_ago if days_ago is not None else "N/A",
+                "source": "Manual (Redis)",
+                "link": LINKS.get(category),
+                "history": None # Manual entry doesn't have 7d/30d history
             })
 
     # 2. Yahoo Finance Tickers
     yf_map = {"brent": "BZ=F", "wti": "CL=F", "natgas": "NG=F", "gasoline": "RB=F"}
     if category in yf_map:
-        return jsonify(fetch_ticker_data(yf_map[category], category))
+        data = fetch_ticker_data(yf_map[category], category)
+        return jsonify(data) if data else (jsonify({"error": "YF error"}), 500)
     
     # 3. EIA Hubs
     if category == "heating_oil": 
-        return jsonify(fetch_eia_v2("petroleum/pri/wfr", "W_EPD2F_PRS_SMA_DPG", category, "weekly", " (Weekly)"))
+        data = fetch_eia_v2("petroleum/pri/wfr", "W_EPD2F_PRS_SMA_DPG", category, "weekly", " (Weekly)")
+        return jsonify(data) if data else (jsonify({"error": "EIA error"}), 500)
     if category == "jetfuel": 
-        return jsonify(fetch_eia_v2("petroleum/pri/spt", "EER_EPJK_PF4_RGC_DPG", category, "daily", " (Spot)"))
-    if category == "algonquin": 
-        return jsonify(fetch_eia_v2("natural-gas/pri/fut", "NG_PRI_FUT_S1_D", category, "daily", " (Spot)"))
+        data = fetch_eia_v2("petroleum/pri/spt", "EER_EPJK_PF4_RGC_DPG", category, "daily", " (Spot)")
+        return jsonify(data) if data else (jsonify({"error": "EIA error"}), 500)
+    # if category == "algonquin": 
+    #     data = fetch_eia_v2("natural-gas/pri/fut", "NG_PRI_FUT_S1_D", category, "daily", " (Spot)")
+    #     return jsonify(data) if data else (jsonify({"error": "EIA error"}), 500)
     
     return jsonify({"error": "Invalid category"}), 400

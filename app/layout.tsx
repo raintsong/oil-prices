@@ -2,7 +2,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Pulse',
+  title: 'Energy Prices',
   description: 'Oil Prices Dashboard',
 };
 

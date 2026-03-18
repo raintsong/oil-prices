@@ -40,7 +40,7 @@ LINKS = {
     "retail_gas_ma": "https://www.eia.gov/todayinenergy/prices.php",
     "heating_oil": "https://www.eia.gov/petroleum/heatingoilpropane/",
     "jetfuel": "https://www.eia.gov/dnav/pet/hist/eer_epjk_pf4_rgc_dpgD.htm",
-    "algonquin": "https://www.eia.gov/todayinenergy/prices.php"
+    # "algonquin": "https://www.eia.gov/todayinenergy/prices.php"
 }
 
 # --- 4. DATA HELPERS ---
