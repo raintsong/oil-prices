@@ -3,12 +3,11 @@ const nextConfig = {
   rewrites: async () => {
     return [
       {
-        // ONLY send requests starting with /api to Flask
         source: '/api/:path*',
         destination:
           process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:5328/api/:path*'
-            : '/api/:path*',
+            ? 'http://127.0.0.1:5328/api/:path*' // Local Flask
+            : '/api', // In production, map /api/* to the api folder
       },
     ]
   },
