@@ -11,8 +11,8 @@ const CATEGORIES = {
   natgas: "Henry Hub",
   gasoline: "RBOB Gasoline",
 //   algonquin: "Algonquin Gas",
-  retail_gas_nat: "US Retail Gas (AAA)",
-  retail_gas_ma: "MA Retail Gas (AAA)",
+  // retail_gas_nat: "US Retail Gas (AAA)",
+  // retail_gas_ma: "MA Retail Gas (AAA)",
   heating_oil: "MA Heating Oil",
   jetfuel: "Jet Fuel Spot"
 };

@@ -24,14 +24,29 @@ def fetch_ticker_data(symbol, category):
     try:
         ticker = yf.Ticker(symbol)
         # Dynamic start year
+        info = ticker.fast_info
         ytd = ticker.history(start=f"{CURRENT_YEAR_STR}-01-01").dropna()
         
         if ytd.empty: return None
 
         peak_val = float(ytd['High'].max())
         peak_date = ytd['High'].idxmax().strftime('%b %d')
-        latest = float(ytd['Close'].iloc[-1])
+
+        # 1. Get the Live Price and the Official Exchange Timestamp
+        live_df = ticker.history(period="1d", interval="1m")
+        if live_df.empty:
+            # Fallback to standard daily data if minute data is missing
+            live_df = ticker.history(period="1d")
+
+        latest_row = live_df.iloc[-1]
+        latest = float(latest_row['Close'])
         
+        # Pulling from the index directly ensures we have the exchange's time
+        # .to_pydatetime() converts the Pandas Timestamp to a standard Python one
+        exchange_ts = live_df.index[-1].to_pydatetime()
+        formatted_date = exchange_ts.strftime('%b %d, %I:%M %p')
+
+
         def get_delta(days_back):
             # Guard against short dataframes
             if len(ytd) < days_back: return {"abs": 0, "pct": 0}
@@ -46,7 +61,7 @@ def fetch_ticker_data(symbol, category):
 
         return {
             "price": latest,
-            "date": ytd.index[-1].strftime('%b %d'),
+            "date": formatted_date,
             "peak_cy": {"val": round(peak_val, 2), "date": peak_date}, # Front-end expects 'peak_cy'
             "change_1d": d1['pct'],
             "abs_1d": d1['abs'],
